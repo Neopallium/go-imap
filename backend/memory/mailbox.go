@@ -12,11 +12,21 @@ import (
 var Delimiter = "/"
 
 type Mailbox struct {
-	Subscribed bool
-	Messages   []*Message
+	Subscribed  bool
+	Messages    []*Message
+	UidValidity uint32
 
 	name string
 	user *User
+}
+
+func NewMailbox(user *User, name string) *Mailbox {
+	mbox := &Mailbox{
+		name: name, user: user,
+		UidValidity: uint32(time.Now().Nanosecond()),
+		Messages:    []*Message{},
+	}
+	return mbox
 }
 
 func (mbox *Mailbox) Name() string {
@@ -42,23 +52,6 @@ func (mbox *Mailbox) uidNext() uint32 {
 	return uid
 }
 
-func (mbox *Mailbox) flags() []string {
-	flagsMap := make(map[string]bool)
-	for _, msg := range mbox.Messages {
-		for _, f := range msg.Flags {
-			if !flagsMap[f] {
-				flagsMap[f] = true
-			}
-		}
-	}
-
-	var flags []string
-	for f := range flagsMap {
-		flags = append(flags, f)
-	}
-	return flags
-}
-
 func (mbox *Mailbox) unseenSeqNum() uint32 {
 	for i, msg := range mbox.Messages {
 		seqNum := uint32(i + 1)
@@ -80,8 +73,12 @@ func (mbox *Mailbox) unseenSeqNum() uint32 {
 
 func (mbox *Mailbox) Status(items []imap.StatusItem) (*imap.MailboxStatus, error) {
 	status := imap.NewMailboxStatus(mbox.name, items)
-	status.Flags = mbox.flags()
-	status.PermanentFlags = []string{"\\*"}
+	status.Flags = []string{
+		imap.AnsweredFlag, imap.FlaggedFlag, imap.DeletedFlag, imap.SeenFlag, imap.DraftFlag, "nonjunk",
+	}
+	status.PermanentFlags = []string{
+		imap.AnsweredFlag, imap.FlaggedFlag, imap.DeletedFlag, imap.SeenFlag, imap.DraftFlag, "nonjunk", "\\*",
+	}
 	status.UnseenSeqNum = mbox.unseenSeqNum()
 
 	for _, name := range items {
@@ -91,7 +88,7 @@ func (mbox *Mailbox) Status(items []imap.StatusItem) (*imap.MailboxStatus, error
 		case imap.StatusUidNext:
 			status.UidNext = mbox.uidNext()
 		case imap.StatusUidValidity:
-			status.UidValidity = 1
+			status.UidValidity = mbox.UidValidity
 		case imap.StatusRecent:
 			status.Recent = 0 // TODO
 		case imap.StatusUnseen:
