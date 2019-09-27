@@ -13,6 +13,8 @@ type Backend struct {
 	sync.RWMutex
 
 	users map[string]*User
+
+	updates chan backend.Update
 }
 
 func (be *Backend) Login(_ *imap.ConnInfo, username, password string) (backend.User, error) {
@@ -37,6 +39,17 @@ func (be *Backend) addUser(username, password string) *User {
 	return user
 }
 
+func (be *Backend) Updates() <-chan backend.Update {
+	return be.updates
+}
+
+func (be *Backend) PushUpdate(update backend.Update) {
+	be.updates <- update
+}
+
 func New() *Backend {
-	return &Backend{users: make(map[string]*User)}
+	return &Backend{
+		users:   make(map[string]*User),
+		updates: make(chan backend.Update),
+	}
 }
