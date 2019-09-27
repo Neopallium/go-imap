@@ -3,7 +3,6 @@ package memory
 
 import (
 	"errors"
-	"time"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/backend"
@@ -15,6 +14,10 @@ type Backend struct {
 
 func (be *Backend) Login(_ *imap.ConnInfo, username, password string) (backend.User, error) {
 	user, ok := be.users[username]
+	// auto create users.
+	if !ok {
+		user = be.addUser(username, password)
+	}
 	if ok && user.password == password {
 		return user, nil
 	}
@@ -22,35 +25,12 @@ func (be *Backend) Login(_ *imap.ConnInfo, username, password string) (backend.U
 	return nil, errors.New("Bad username or password")
 }
 
+func (be *Backend) addUser(username, password string) *User {
+	user := NewUser(be, username, password)
+	be.users[username] = user
+	return user
+}
+
 func New() *Backend {
-	user := &User{username: "username", password: "password"}
-
-	body := "From: contact@example.org\r\n" +
-		"To: contact@example.org\r\n" +
-		"Subject: A little message, just for you\r\n" +
-		"Date: Wed, 11 May 2016 14:31:59 +0000\r\n" +
-		"Message-ID: <0000000@localhost/>\r\n" +
-		"Content-Type: text/plain\r\n" +
-		"\r\n" +
-		"Hi there :)"
-
-	user.mailboxes = map[string]*Mailbox{
-		"INBOX": {
-			name: "INBOX",
-			user: user,
-			Messages: []*Message{
-				{
-					Uid:   6,
-					Date:  time.Now(),
-					Flags: []string{"\\Seen"},
-					Size:  uint32(len(body)),
-					Body:  []byte(body),
-				},
-			},
-		},
-	}
-
-	return &Backend{
-		users: map[string]*User{user.username: user},
-	}
+	return &Backend{users: make(map[string]*User)}
 }
