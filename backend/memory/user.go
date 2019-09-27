@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	specialuse "github.com/emersion/go-imap-specialuse"
 	"github.com/emersion/go-imap/backend"
 )
 
@@ -36,7 +37,7 @@ func NewUser(backend *Backend, username string, password string) *User {
 		"\r\n" +
 		"Hi " + username + " there :)"
 
-	user.CreateMailbox("INBOX")
+	user.createMailbox("INBOX", "")
 	inbox := user.mailboxes["INBOX"]
 	inbox.Messages = []*Message{
 		{
@@ -47,10 +48,10 @@ func NewUser(backend *Backend, username string, password string) *User {
 			Body:  []byte(body),
 		},
 	}
-	user.CreateMailbox("Sent")
-	user.CreateMailbox("Drafts")
-	user.CreateMailbox("Queue")
-	user.CreateMailbox("Trash")
+	user.createMailbox("Sent", specialuse.Sent)
+	user.createMailbox("Drafts", specialuse.Drafts)
+	user.createMailbox("Queue", "")
+	user.createMailbox("Trash", specialuse.Trash)
 
 	return user
 }
@@ -84,16 +85,20 @@ func (u *User) GetMailbox(name string) (mailbox backend.Mailbox, err error) {
 	return
 }
 
-func (u *User) CreateMailbox(name string) error {
-	u.Lock()
-	defer u.Unlock()
-
+func (u *User) createMailbox(name string, special_use string) error {
 	if _, ok := u.mailboxes[name]; ok {
 		return errors.New("Mailbox already exists")
 	}
 
-	u.mailboxes[name] = NewMailbox(u, name)
+	u.mailboxes[name] = NewMailbox(u, name, special_use)
 	return nil
+}
+
+func (u *User) CreateMailbox(name string) error {
+	u.Lock()
+	defer u.Unlock()
+
+	return u.createMailbox(name, "")
 }
 
 func (u *User) DeleteMailbox(name string) error {

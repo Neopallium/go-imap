@@ -12,9 +12,14 @@ import (
 
 var Delimiter = "/"
 
+const (
+	Subscribed = "\\Subscribed"
+)
+
 type Mailbox struct {
 	sync.RWMutex
 
+	Attributes  []string
 	Subscribed  bool
 	Messages    []*Message
 	UidValidity uint32
@@ -23,11 +28,14 @@ type Mailbox struct {
 	user *User
 }
 
-func NewMailbox(user *User, name string) *Mailbox {
+func NewMailbox(user *User, name string, special_use string) *Mailbox {
 	mbox := &Mailbox{
 		name: name, user: user,
 		UidValidity: uint32(time.Now().Nanosecond()),
 		Messages:    []*Message{},
+	}
+	if special_use != "" {
+		mbox.Attributes = []string{special_use}
 	}
 	return mbox
 }
@@ -41,8 +49,9 @@ func (mbox *Mailbox) Info() (*imap.MailboxInfo, error) {
 	defer mbox.RUnlock()
 
 	info := &imap.MailboxInfo{
-		Delimiter: Delimiter,
-		Name:      mbox.name,
+		Attributes: mbox.Attributes,
+		Delimiter:  Delimiter,
+		Name:       mbox.name,
 	}
 	return info, nil
 }
@@ -113,6 +122,21 @@ func (mbox *Mailbox) SetSubscribed(subscribed bool) error {
 	defer mbox.Unlock()
 
 	mbox.Subscribed = subscribed
+
+	// First filter out the Subscribed attribute
+	attrs := mbox.Attributes[:0]
+	for _, attr := range mbox.Attributes {
+		if attr != Subscribed {
+			attrs = append(attrs, attr)
+		}
+	}
+	// then add it if subscribed
+	if subscribed {
+		attrs = append(attrs, Subscribed)
+	}
+	// save changes.
+	mbox.Attributes = attrs
+
 	return nil
 }
 
