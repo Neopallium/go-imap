@@ -37,27 +37,31 @@ func matchBody(e *message.Entity, substr string) (bool, error) {
 	return matchString(b.String(), substr), nil
 }
 
-type lengther interface {
-	Len() int
-}
-
-func bodyLen(e *message.Entity) (int, error) {
-	if l, ok := e.Body.(lengther); ok {
-		return l.Len(), nil
-	}
-
-	b, err := bufferBody(e)
+// TODO: find a better way to calculate message length or cache it.
+func messageLen(e *message.Entity) (int, error) {
+	// Make a copy of the body.  This is required to allow calling messageLen()
+	// multiple times (multiple SearchCriteria)
+	body_b, err := bufferBody(e)
 	if err != nil {
 		return 0, err
 	}
-	return b.Len(), nil
+	body := body_b.Bytes()
+
+	// Write full message to buffer to get the length.
+	var b bytes.Buffer
+	if err := e.WriteTo(&b); err != nil {
+		return 0, err
+	}
+	l := b.Len()
+	// Reset message body
+	e.Body = bytes.NewReader(body)
+	return l, nil
 }
 
 // Match returns true if a message and its metadata matches the provided
 // criteria.
 func Match(e *message.Entity, seqNum, uid uint32, date time.Time, flags []string, c *imap.SearchCriteria) (bool, error) {
 	// TODO: support encoded header fields for Bcc, Cc, From, To
-	// TODO: add header size for Larger and Smaller
 
 	h := mail.Header{Header: e.Header}
 
@@ -111,15 +115,15 @@ func Match(e *message.Entity, seqNum, uid uint32, date time.Time, flags []string
 	}
 
 	if c.Larger > 0 || c.Smaller > 0 {
-		n, err := bodyLen(e)
+		n, err := messageLen(e)
 		if err != nil {
 			return false, err
 		}
 
-		if c.Larger > 0 && uint32(n) < c.Larger {
+		if c.Larger > 0 && uint32(n) <= c.Larger {
 			return false, nil
 		}
-		if c.Smaller > 0 && uint32(n) > c.Smaller {
+		if c.Smaller > 0 && uint32(n) >= c.Smaller {
 			return false, nil
 		}
 	}
