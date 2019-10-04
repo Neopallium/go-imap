@@ -12,10 +12,6 @@ import (
 
 var Delimiter = "/"
 
-const (
-	Subscribed = "\\Subscribed"
-)
-
 type Mailbox struct {
 	sync.RWMutex
 
@@ -32,7 +28,7 @@ type Mailbox struct {
 func NewMailbox(user *User, name string, special_use string) *Mailbox {
 	mbox := &Mailbox{
 		name: name, user: user,
-		UidValidity: uint32(time.Now().Nanosecond()),
+		UidValidity: 1, // Use 1 for tests.  Should use timestamp instead.
 		Messages:    []*Message{},
 		Flags: []string{
 			imap.AnsweredFlag,
@@ -144,20 +140,6 @@ func (mbox *Mailbox) SetSubscribed(subscribed bool) error {
 	defer mbox.Unlock()
 
 	mbox.Subscribed = subscribed
-
-	// First filter out the Subscribed attribute
-	attrs := mbox.Attributes[:0]
-	for _, attr := range mbox.Attributes {
-		if attr != Subscribed {
-			attrs = append(attrs, attr)
-		}
-	}
-	// then add it if subscribed
-	if subscribed {
-		attrs = append(attrs, Subscribed)
-	}
-	// save changes.
-	mbox.Attributes = attrs
 
 	return nil
 }

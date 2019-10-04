@@ -24,6 +24,10 @@ func (be *Backend) Login(_ *imap.ConnInfo, username, password string) (backend.U
 	user, ok := be.users[username]
 	// auto create users.
 	if !ok {
+		// For tests: reject "wrongpassword"
+		if password == "wrongpassword" {
+			return nil, errors.New("Bad username or password")
+		}
 		user = be.addUser(username, password)
 	}
 	if user.password == password {

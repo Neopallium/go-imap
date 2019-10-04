@@ -2,12 +2,10 @@ package memory
 
 import (
 	"errors"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/emersion/go-imap"
-	specialuse "github.com/emersion/go-imap-specialuse"
 	"github.com/emersion/go-imap/backend"
 )
 
@@ -28,31 +26,32 @@ func NewUser(backend *Backend, username string, password string) *User {
 		mailboxes: map[string]*Mailbox{},
 	}
 
-	t := time.Now()
+	// Message for tests
 	body := "From: contact@example.org\r\n" +
-		"To: " + username + "@example.org\r\n" +
+		"To: contact@example.org\r\n" +
 		"Subject: A little message, just for you\r\n" +
-		"Date: " + t.Format("Mon, 2 Jan 2006 15:04:05 -0700") + "\r\n" +
-		"Message-ID: <" + strconv.Itoa(t.Nanosecond()) + "@localhost/>\r\n" +
+		"Date: Wed, 11 May 2016 14:31:59 +0000\r\n" +
+		"Message-ID: <0000000@localhost/>\r\n" +
 		"Content-Type: text/plain\r\n" +
 		"\r\n" +
-		"Hi " + username + " there :)"
+		"Hi there :)"
 
 	user.createMailbox("INBOX", "")
 	inbox := user.mailboxes["INBOX"]
 	inbox.Messages = []*Message{
 		{
-			Uid:   1,
-			Date:  t,
-			Flags: []string{},
+			Uid:   6,
+			Date:  time.Now(),
+			Flags: []string{imap.SeenFlag},
 			Size:  uint32(len(body)),
 			Body:  []byte(body),
 		},
 	}
-	user.createMailbox("Sent", specialuse.Sent)
-	user.createMailbox("Drafts", specialuse.Drafts)
-	user.createMailbox("Queue", "")
-	user.createMailbox("Trash", specialuse.Trash)
+	// TODO: Auto create other mailboxes for the user.
+	//user.createMailbox("Sent", specialuse.Sent)
+	//user.createMailbox("Drafts", specialuse.Drafts)
+	//user.createMailbox("Queue", "")
+	//user.createMailbox("Trash", specialuse.Trash)
 
 	return user
 }
