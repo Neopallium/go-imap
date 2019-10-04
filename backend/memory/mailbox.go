@@ -19,6 +19,7 @@ const (
 type Mailbox struct {
 	sync.RWMutex
 
+	Flags       []string
 	Attributes  []string
 	Subscribed  bool
 	Messages    []*Message
@@ -33,6 +34,14 @@ func NewMailbox(user *User, name string, special_use string) *Mailbox {
 		name: name, user: user,
 		UidValidity: uint32(time.Now().Nanosecond()),
 		Messages:    []*Message{},
+		Flags: []string{
+			imap.AnsweredFlag,
+			imap.FlaggedFlag,
+			imap.DeletedFlag,
+			imap.SeenFlag,
+			imap.DraftFlag,
+			"nonjunk",
+		},
 	}
 	if special_use != "" {
 		mbox.Attributes = []string{special_use}
@@ -89,12 +98,9 @@ func (mbox *Mailbox) unseenSeqNum() uint32 {
 func (mbox *Mailbox) status(items []imap.StatusItem, flags bool) (*imap.MailboxStatus, error) {
 	status := imap.NewMailboxStatus(mbox.name, items)
 	if flags {
-		status.Flags = []string{
-			imap.AnsweredFlag, imap.FlaggedFlag, imap.DeletedFlag, imap.SeenFlag, imap.DraftFlag, "nonjunk",
-		}
-		status.PermanentFlags = []string{
-			imap.AnsweredFlag, imap.FlaggedFlag, imap.DeletedFlag, imap.SeenFlag, imap.DraftFlag, "nonjunk", "\\*",
-		}
+		flags := append(mbox.Flags[:0:0], mbox.Flags...)
+		status.Flags = flags
+		status.PermanentFlags = append(flags, "\\*")
 	}
 	status.UnseenSeqNum = mbox.unseenSeqNum()
 
@@ -220,9 +226,10 @@ func (mbox *Mailbox) CreateMessage(flags []string, date time.Time, body imap.Lit
 		Uid:   mbox.uidNext(),
 		Date:  date,
 		Size:  uint32(len(b)),
-		Flags: flags,
+		Flags: append(flags, imap.RecentFlag),
 		Body:  b,
 	})
+	mbox.Flags = backendutil.UpdateFlags(mbox.Flags, imap.AddFlags, flags)
 	mbox.user.PushMailboxUpdate(mbox)
 	return nil
 }
@@ -233,9 +240,36 @@ func (mbox *Mailbox) pushMessageUpdate(msg *Message, seqNum uint32) {
 	mbox.user.PushMessageUpdate(mbox.name, uMsg)
 }
 
+func CompareFlags(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func UpdateFlags(current []string, op imap.FlagsOp, flags []string) ([]string, bool) {
+	origFlags := append(current[:0:0], current...)
+	current = backendutil.UpdateFlags(current, op, flags)
+	changed := !CompareFlags(current, origFlags)
+	return current, changed
+}
+
 func (mbox *Mailbox) UpdateMessagesFlags(uid bool, seqset *imap.SeqSet, op imap.FlagsOp, flags []string) error {
 	mbox.Lock()
 	defer mbox.Unlock()
+
+	// Update mailbox flags list
+	if op == imap.AddFlags || op == imap.SetFlags {
+		if newFlags, changed := UpdateFlags(mbox.Flags, imap.AddFlags, flags); changed {
+			mbox.Flags = newFlags
+			mbox.user.PushMailboxUpdate(mbox)
+		}
+	}
 
 	for i, msg := range mbox.Messages {
 		var id uint32
@@ -248,8 +282,10 @@ func (mbox *Mailbox) UpdateMessagesFlags(uid bool, seqset *imap.SeqSet, op imap.
 			continue
 		}
 
-		msg.Flags = backendutil.UpdateFlags(msg.Flags, op, flags)
-		mbox.pushMessageUpdate(msg, uint32(i+1))
+		if newFlags, changed := UpdateFlags(msg.Flags, op, flags); changed {
+			msg.Flags = newFlags
+			mbox.pushMessageUpdate(msg, uint32(i+1))
+		}
 	}
 
 	return nil
@@ -293,6 +329,7 @@ func (mbox *Mailbox) MoveMessages(uid bool, seqset *imap.SeqSet, destName string
 		return backend.ErrNoSuchMailbox
 	}
 
+	flags := []string{imap.DeletedFlag}
 	for i, msg := range mbox.Messages {
 		var id uint32
 		if uid {
@@ -308,7 +345,7 @@ func (mbox *Mailbox) MoveMessages(uid bool, seqset *imap.SeqSet, destName string
 		msgCopy.Uid = dest.uidNext()
 		dest.Messages = append(dest.Messages, &msgCopy)
 		// Mark source message as deleted
-		msg.Flags = backendutil.UpdateFlags(msg.Flags, imap.AddFlags, []string{imap.DeletedFlag})
+		msg.Flags = backendutil.UpdateFlags(msg.Flags, imap.AddFlags, flags)
 	}
 
 	mbox.user.PushMailboxUpdate(dest)
