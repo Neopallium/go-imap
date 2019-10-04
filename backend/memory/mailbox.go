@@ -364,9 +364,8 @@ func (mbox *Mailbox) MoveMessages(uid bool, seqset *imap.SeqSet, destName string
 }
 
 func (mbox *Mailbox) expunge() error {
-	for i := len(mbox.Messages) - 1; i >= 0; i-- {
-		msg := mbox.Messages[i]
-
+	msgs := mbox.Messages[:0]
+	for i, msg := range mbox.Messages {
 		deleted := false
 		for _, flag := range msg.Flags {
 			if flag == imap.DeletedFlag {
@@ -376,11 +375,13 @@ func (mbox *Mailbox) expunge() error {
 		}
 
 		if deleted {
-			mbox.Messages = append(mbox.Messages[:i], mbox.Messages[i+1:]...)
 			// send expunge update
 			mbox.user.PushExpungeUpdate(mbox.name, uint32(i+1))
+		} else {
+			msgs = append(msgs, msg)
 		}
 	}
+	mbox.Messages = msgs
 
 	return nil
 }
