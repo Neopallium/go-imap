@@ -100,10 +100,14 @@ func (cmd *Expunge) Handle(conn Conn) error {
 			done <- conn.WriteResp(res)
 		})()
 
-		// Iterate sequence numbers from the last one to the first one, as deleting
-		// messages changes their respective numbers
-		for i := len(seqnums) - 1; i >= 0; i-- {
-			ch <- seqnums[i]
+		// Send sequence numbers to channel, and check if conn.WriteResp() finished early.
+		for _, seqnum := range seqnums {
+			select {
+			case ch <- seqnum: // Send next seq. number
+			case err := <-done: // Check for errors
+				close(ch)
+				return err
+			}
 		}
 		close(ch)
 
@@ -157,7 +161,15 @@ func (cmd *Fetch) handle(uid bool, conn Conn) error {
 
 	done := make(chan error, 1)
 	go (func() {
-		done <- conn.WriteResp(res)
+		err := conn.WriteResp(res)
+		// Make sure to drain the message channel.
+		for {
+			_, ok := <-ch
+			if !ok {
+				break
+			}
+		}
+		done <- err
 	})()
 
 	err := ctx.Mailbox.ListMessages(uid, cmd.SeqSet, cmd.Items, ch)

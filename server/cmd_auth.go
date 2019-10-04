@@ -147,20 +147,31 @@ func (cmd *List) Handle(conn Conn) error {
 
 	done := make(chan error, 1)
 	go (func() {
-		done <- conn.WriteResp(res)
-		close(done)
+		err := conn.WriteResp(res)
+		// Make sure to drain the channel.
+		for {
+			_, ok := <-ch
+			if !ok {
+				break
+			}
+		}
+		done <- err
 	})()
 
 	mailboxes, err := ctx.User.ListMailboxes(cmd.Subscribed)
 	if err != nil {
+		// Close channel and clear done channel
 		close(ch)
+		<-done
 		return err
 	}
 
 	for _, mbox := range mailboxes {
 		info, err := mbox.Info()
 		if err != nil {
+			// Close channel and clear done channel
 			close(ch)
+			<-done
 			return err
 		}
 
