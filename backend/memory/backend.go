@@ -26,7 +26,7 @@ func (be *Backend) Login(_ *imap.ConnInfo, username, password string) (backend.U
 	if !ok {
 		user = be.addUser(username, password)
 	}
-	if ok && user.password == password {
+	if user.password == password {
 		return user, nil
 	}
 
