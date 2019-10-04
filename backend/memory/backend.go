@@ -44,7 +44,9 @@ func (be *Backend) Updates() <-chan backend.Update {
 }
 
 func (be *Backend) PushUpdate(update backend.Update) {
+	wait := update.Done()
 	be.updates <- update
+	<-wait
 }
 
 func New() *Backend {
