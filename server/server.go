@@ -88,7 +88,7 @@ func ErrNoStatusResp() error {
 	return &errStatusResp{nil}
 }
 
-type connSub struct {
+type mboxListener struct {
 	user    string
 	mailbox string
 	silent  bool
@@ -98,7 +98,7 @@ type connSub struct {
 type Server struct {
 	locker    sync.Mutex
 	listeners map[net.Listener]struct{}
-	conns     map[Conn]*connSub
+	conns     map[Conn]*mboxListener
 
 	commands   map[string]HandlerFactory
 	auths      map[string]SASLServerFactory
@@ -134,7 +134,7 @@ type Server struct {
 func New(bkd backend.Backend) *Server {
 	s := &Server{
 		listeners: make(map[net.Listener]struct{}),
-		conns:     make(map[Conn]*connSub),
+		conns:     make(map[Conn]*mboxListener),
 		Backend:   bkd,
 		ErrorLog:  log.New(os.Stderr, "imap/server: ", log.LstdFlags),
 	}
@@ -275,7 +275,7 @@ func (s *Server) ListenAndServeTLS() error {
 
 func (s *Server) serveConn(conn Conn) error {
 	s.locker.Lock()
-	s.conns[conn] = &connSub{}
+	s.conns[conn] = &mboxListener{}
 	s.locker.Unlock()
 
 	defer func() {
@@ -288,7 +288,7 @@ func (s *Server) serveConn(conn Conn) error {
 	return conn.serve(conn)
 }
 
-func (s *Server) updateConnSub(conn Conn, user string, mailbox string) {
+func (s *Server) updateMboxListener(conn Conn, user string, mailbox string) {
 	s.locker.Lock()
 	if sub, ok := s.conns[conn]; ok {
 		sub.user = user
@@ -297,7 +297,7 @@ func (s *Server) updateConnSub(conn Conn, user string, mailbox string) {
 	s.locker.Unlock()
 }
 
-func (s *Server) silentConnSub(conn Conn, silent bool) {
+func (s *Server) silentMboxListener(conn Conn, silent bool) {
 	s.locker.Lock()
 	if sub, ok := s.conns[conn]; ok {
 		sub.silent = silent

@@ -263,7 +263,7 @@ func (c *conn) serve(conn Conn) (err error) {
 
 	defer func() {
 		c.ctx.State = imap.LogoutState
-		c.s.updateConnSub(c, "", "")
+		c.s.updateMboxListener(c, "", "")
 		close(c.loggedOut)
 	}()
 
