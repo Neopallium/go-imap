@@ -152,11 +152,7 @@ func (cmd *List) Handle(conn Conn) error {
 	go (func() {
 		err := conn.WriteResp(res)
 		// Make sure to drain the channel.
-		for {
-			_, ok := <-ch
-			if !ok {
-				break
-			}
+		for _ = range ch {
 		}
 		done <- err
 	})()
