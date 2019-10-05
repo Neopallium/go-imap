@@ -35,24 +35,24 @@ func (m *Message) Fetch(seqNum uint32, items []imap.FetchItem) (*imap.Message, e
 	for _, item := range items {
 		switch item {
 		case imap.FetchEnvelope:
-			if hdr, _, err := m.headerAndBody(); err == nil {
-				if envelope, err := backendutil.FetchEnvelope(hdr); err == nil {
-					fetched.Envelope = envelope
-				} else {
-					return nil, err
-				}
-			} else {
+			hdr, _, err := m.headerAndBody()
+			if err != nil {
 				return nil, err
 			}
-		case imap.FetchBody, imap.FetchBodyStructure:
-			if hdr, body, err := m.headerAndBody(); err == nil {
-				if body, err := backendutil.FetchBodyStructure(hdr, body, item == imap.FetchBodyStructure); err == nil {
-					fetched.BodyStructure = body
-				} else {
-					return nil, err
-				}
-			} else {
+			if envelope, err := backendutil.FetchEnvelope(hdr); err != nil {
 				return nil, err
+			} else {
+				fetched.Envelope = envelope
+			}
+		case imap.FetchBody, imap.FetchBodyStructure:
+			hdr, body, err := m.headerAndBody()
+			if err != nil {
+				return nil, err
+			}
+			if body, err := backendutil.FetchBodyStructure(hdr, body, item == imap.FetchBodyStructure); err != nil {
+				return nil, err
+			} else {
+				fetched.BodyStructure = body
 			}
 		case imap.FetchFlags:
 			// Copy flags, don't return reference to message's flags slice.
