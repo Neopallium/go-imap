@@ -327,7 +327,6 @@ func (br *bufResp) WriteTo(w *imap.Writer) error {
 }
 
 func bufferResp(res imap.WriterTo) (imap.WriterTo, error) {
-	//var buf bytes.Buffer
 	buf := bufResp{}
 	bufWriter := imap.NewWriter(&buf)
 	if err := res.WriteTo(bufWriter); err != nil {
