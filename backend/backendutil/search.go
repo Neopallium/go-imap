@@ -41,11 +41,11 @@ func matchBody(e *message.Entity, substr string) (bool, error) {
 func messageLen(e *message.Entity) (int, error) {
 	// Make a copy of the body.  This is required to allow calling messageLen()
 	// multiple times (multiple SearchCriteria)
-	body_b, err := bufferBody(e)
+	bodyBuf, err := bufferBody(e)
 	if err != nil {
 		return 0, err
 	}
-	body := body_b.Bytes()
+	body := bodyBuf.Bytes()
 
 	// Write full message to buffer to get the length.
 	var b bytes.Buffer

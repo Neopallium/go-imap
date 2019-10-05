@@ -25,7 +25,7 @@ type Mailbox struct {
 	user *User
 }
 
-func NewMailbox(user *User, name string, special_use string) *Mailbox {
+func NewMailbox(user *User, name string, specialUse string) *Mailbox {
 	mbox := &Mailbox{
 		name: name, user: user,
 		UidValidity: 1, // Use 1 for tests.  Should use timestamp instead.
@@ -39,8 +39,8 @@ func NewMailbox(user *User, name string, special_use string) *Mailbox {
 			"nonjunk",
 		},
 	}
-	if special_use != "" {
-		mbox.Attributes = []string{special_use}
+	if specialUse != "" {
+		mbox.Attributes = []string{specialUse}
 	}
 	return mbox
 }

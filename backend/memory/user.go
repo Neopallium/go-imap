@@ -85,12 +85,12 @@ func (u *User) GetMailbox(name string) (mailbox backend.Mailbox, err error) {
 	return
 }
 
-func (u *User) createMailbox(name string, special_use string) error {
+func (u *User) createMailbox(name string, specialUse string) error {
 	if _, ok := u.mailboxes[name]; ok {
 		return errors.New("Mailbox already exists")
 	}
 
-	u.mailboxes[name] = NewMailbox(u, name, special_use)
+	u.mailboxes[name] = NewMailbox(u, name, specialUse)
 	return nil
 }
 
