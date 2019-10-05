@@ -103,10 +103,12 @@ func (cmd *Expunge) Handle(conn Conn) error {
 			done <- conn.WriteResp(res)
 		})()
 
-		// Send sequence numbers to channel, and check if conn.WriteResp() finished early.
-		for _, seqnum := range seqnums {
+		// Iterate sequence numbers from the last one to the first one, as deleting
+		// messages changes their respective numbers
+		for i := len(seqnums) - 1; i >= 0; i-- {
+			// Send sequence numbers to channel, and check if conn.WriteResp() finished early.
 			select {
-			case ch <- seqnum: // Send next seq. number
+			case ch <- seqnums[i]: // Send next seq. number
 			case err := <-done: // Check for errors
 				close(ch)
 				return err
