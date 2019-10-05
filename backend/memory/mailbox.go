@@ -103,6 +103,7 @@ func (mbox *Mailbox) getMsgStats() messageStats {
 func (mbox *Mailbox) status(items []imap.StatusItem, flags bool) (*imap.MailboxStatus, error) {
 	status := imap.NewMailboxStatus(mbox.name, items)
 	if flags {
+		// Copy flags slice (don't re-use slice)
 		flags := append(mbox.Flags[:0:0], mbox.Flags...)
 		status.Flags = flags
 		status.PermanentFlags = append(flags, "\\*")
@@ -229,7 +230,7 @@ func (mbox *Mailbox) CreateMessage(flags []string, date time.Time, body imap.Lit
 func (mbox *Mailbox) pushMessageUpdate(uid bool, msg *Message, seqNum uint32) {
 	items := []imap.FetchItem{imap.FetchFlags}
 	if uid {
-		items = append(items, "UID")
+		items = append(items, imap.FetchUid)
 	}
 	uMsg := imap.NewMessage(seqNum, items)
 	uMsg.Flags = msg.Flags
